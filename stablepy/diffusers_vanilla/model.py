@@ -1278,14 +1278,28 @@ class Model_Diffusers:
                 else:
                     ref_images_embeds = []
 
-                    image = cv2.cvtColor(np.asarray(image), cv2.COLOR_BGR2RGB)
-                    faces = app.get(image)
-                    image = torch.from_numpy(faces[0].normed_embedding)
-                    ref_images_embeds.append(image.unsqueeze(0))
-                    ref_images_embeds = torch.stack(ref_images_embeds, dim=0).unsqueeze(0)
-                    neg_ref_images_embeds = torch.zeros_like(ref_images_embeds)
-                    id_embed = torch.cat([neg_ref_images_embeds, ref_images_embeds]).to(dtype=self.type_model_precision, device=self.device)
-                    image_embeds.append(id_embed)
+                    if not isinstance(image, list):
+                        image = [image]
+
+                    images = image
+                    embeds = []
+                    for img in images:
+                        image = cv2.cvtColor(np.asarray(img), cv2.COLOR_BGR2RGB)
+                        faces = app.get(image)
+                        image = torch.from_numpy(faces[0].normed_embedding)
+                        e = []
+                        e.append(image.unsqueeze(0))
+                        e = torch.stack(e, dim=0).unsqueeze(0)
+                        embeds.append(e)
+
+                    embeds = torch.cat(embeds, dim=1)
+                    if len(image) > 1:
+                        embeds = embeds.mean(dim=1, keepdim=True, dtype=torch.float16)
+                    neg_embeds = torch.zeros_like(embeds)
+
+                    image_embeds.append(
+                        torch.cat([neg_embeds, embeds]).to(dtype=self.type_model_precision, device=self.device)
+                    )
 
         processed_masks = []
         if ip_masks and ip_masks[0] is not None:  # fix this auto generate mask if any have it...
