@@ -16,6 +16,7 @@ def ad_model_process(
     face_detector_ad,
     person_detector_ad,
     hand_detector_ad,
+    custom_model_path,
     image_list_task,  # pil
     mask_dilation=4,
     mask_blur=4,
@@ -55,6 +56,9 @@ def ad_model_process(
         hand_model_path = hf_hub_download("Bingsu/adetailer", "hand_yolov8n.pt")
         hand_detector = partial(yolo_detector, model_path=hand_model_path)
         detectors.append(hand_detector)
+    if custom_model_path:
+        detector = partial(yolo_detector, model_path=custom_model_path)
+        detectors.append(detector)
 
     image_list_ad = []
 
