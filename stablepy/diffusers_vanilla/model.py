@@ -2040,7 +2040,7 @@ class Model_Diffusers:
             adetailer_A_params.pop("sampler", None)
             if adetailer_B_params.get("sampler", "Use same sampler") != "Use same sampler":
                 logger.debug("detailfix_pipe will use the sampler from adetailer_B")
-                detailfix_pipe.scheduler = self.get_scheduler(adetailer_A_params["sampler"])
+                detailfix_pipe.scheduler = self.get_scheduler(adetailer_B_params["sampler"])
             adetailer_B_params.pop("sampler", None)
 
             detailfix_pipe.set_progress_bar_config(leave=leave_progress_bar)
