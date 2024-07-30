@@ -1246,22 +1246,35 @@ class Model_Diffusers:
 
             image_embeds = []
             for i, (image, ip_weight) in enumerate(zip(ip_images, self.ip_adapter_config)):
+                if not isinstance(image, list):
+                    image = [image]
+
+                images = image
+                embeds = []
+                ip_adapter_images = []
+
+                for img in images:
+                    image = cv2.cvtColor(np.asarray(img), cv2.COLOR_BGR2RGB)
+                    faces = app.get(image)
+                    if "plus" in ip_weight and len(ip_adapter_images) < 1:
+                        ip_adapter_images.append(face_align.norm_crop(image, landmark=faces[0].kps, image_size=224)) # if not detected face error
+                    
+                    image = torch.from_numpy(faces[0].normed_embedding)
+                    e = []
+                    e.append(image.unsqueeze(0))
+                    e = torch.stack(e, dim=0).unsqueeze(0)
+                    embeds.append(e)
+                
+                embeds = torch.cat(embeds, dim=1)
+                if len(image) > 1:
+                    embeds = embeds.mean(dim=1, keepdim=True, dtype=torch.float16)
+                neg_embeds = torch.zeros_like(embeds)
+                
+                image_embeds.append(
+                    torch.cat([neg_embeds, embeds]).to(dtype=self.type_model_precision, device=self.device)
+                )
 
                 if "plus" in ip_weight:
-
-                    ref_images_embeds = []
-                    ip_adapter_images = []
-
-                    image = cv2.cvtColor(np.asarray(image), cv2.COLOR_BGR2RGB)
-                    faces = app.get(image)
-                    ip_adapter_images.append(face_align.norm_crop(image, landmark=faces[0].kps, image_size=224))  # if not detected face error
-                    image = torch.from_numpy(faces[0].normed_embedding)
-                    ref_images_embeds.append(image.unsqueeze(0))
-                    ref_images_embeds = torch.stack(ref_images_embeds, dim=0).unsqueeze(0)
-                    neg_ref_images_embeds = torch.zeros_like(ref_images_embeds)
-                    id_embed = torch.cat([neg_ref_images_embeds, ref_images_embeds]).to(dtype=self.type_model_precision, device=self.device)
-                    image_embeds.append(id_embed)
-
                     clip_embeds = self.pipe.prepare_ip_adapter_image_embeds(
                         [ip_adapter_images] * len(ip_images),
                         None,
@@ -1275,17 +1288,6 @@ class Model_Diffusers:
                         self.pipe.unet.encoder_hid_proj.image_projection_layers[i].shortcut = True
                     else:
                         self.pipe.unet.encoder_hid_proj.image_projection_layers[i].shortcut = False
-                else:
-                    ref_images_embeds = []
-
-                    image = cv2.cvtColor(np.asarray(image), cv2.COLOR_BGR2RGB)
-                    faces = app.get(image)
-                    image = torch.from_numpy(faces[0].normed_embedding)
-                    ref_images_embeds.append(image.unsqueeze(0))
-                    ref_images_embeds = torch.stack(ref_images_embeds, dim=0).unsqueeze(0)
-                    neg_ref_images_embeds = torch.zeros_like(ref_images_embeds)
-                    id_embed = torch.cat([neg_ref_images_embeds, ref_images_embeds]).to(dtype=self.type_model_precision, device=self.device)
-                    image_embeds.append(id_embed)
 
         processed_masks = []
         if ip_masks and ip_masks[0] is not None:  # fix this auto generate mask if any have it...
